@@ -1,0 +1,529 @@
+================================================================================
+ DEMO SCRIPT - DEFENCE DAY
+ AI GOVERNANCE AND ETHICS PLATFORM
+ Ethical Guideline and Governance Framework for Artificial Intelligence Use
+ in Nigerian Tech Startups
+================================================================================
+
+Print this. Keep it beside the laptop. Total demonstration time: 12 minutes.
+
+--------------------------------------------------------------------------------
+ IMPORTANT CORRECTION BEFORE YOU START
+--------------------------------------------------------------------------------
+
+Your original demo notes said the fraud detection risk score would calculate to
+"59.5". That figure is wrong. With the weights in the framework document:
+
+    Risk = 0.30 x Impact + 0.20 x Likelihood + 0.15 x Privacy
+         + 0.15 x Fairness + 0.10 x Security + 0.10 x Autonomy
+
+    Impact 70    ->  0.30 x 70 = 21.00
+    Likelihood 40->  0.20 x 40 =  8.00
+    Privacy 80   ->  0.15 x 80 = 12.00
+    Fairness 30  ->  0.15 x 30 =  4.50
+    Security 60  ->  0.10 x 60 =  6.00
+    Autonomy 50  ->  0.10 x 50 =  5.00
+                                 ------
+                                  56.50
+
+The correct answer is **56.5**, which is still in the HIGH band (41-70), so your
+narrative is unchanged - only the number. The platform computes this
+automatically; an examiner checking the arithmetic will get 56.5. Do not say
+59.5, or you invite a question you cannot answer.
+
+Verified: `tests/functional_test.py` asserts this exact calculation.
+
+
+--------------------------------------------------------------------------------
+ SECTION 0 - THE STORY YOU ARE TELLING
+--------------------------------------------------------------------------------
+
+Nigeria now has a Data Protection Act (2023) and a National AI Strategy. Nigerian
+startups are deploying AI faster than they are governing it. The gap this project
+fills is simple:
+
+    A startup cannot govern an AI system it has not recorded, cannot judge one
+    it has not assessed, and cannot prove any of it without a trail.
+
+The platform delivers five things:
+
+    1. An AI REGISTER        - every system recorded, owned and classified
+    2. A RISK ENGINE         - six weighted dimensions, score calculated
+    3. AN ETHICS ASSESSMENT  - eight requirements, recommendation produced
+    4. AN APPROVAL WORKFLOW  - separation of duties, decisions recorded
+    5. AN AUDIT TRAIL        - append-only evidence for the regulator
+
+AND IT ENFORCES SEPARATION OF DUTIES: the developer who builds an AI system
+cannot approve it. Only the Governance Officer decides, and High/Critical risk
+systems need an Administrator.
+
+The organisation in the demo data is **PayLink Nigeria Ltd**, a fictional
+Nigerian fintech with three AI systems:
+
+    Customer Support Chatbot        17.5  LOW       Approved
+    Loan Approval Algorithm         63.8  HIGH      Under review
+    Employee Performance Analyzer   (not assessed)  Submitted
+
+
+--------------------------------------------------------------------------------
+ SECTION 1 - 20 MINUTES BEFORE
+--------------------------------------------------------------------------------
+
+ [ ] Laptop on power. Screen mirroring tested.
+ [ ] Close WhatsApp, email and every other application.
+ [ ] Reset the demonstration data so the run is predictable:
+
+         setup_and_start.bat reset
+
+ [ ] The browser opens at http://localhost:8501 with the login page.
+ [ ] Sign in once as each of the five accounts to warm the cache, then sign out.
+ [ ] Browser zoom 110% (or 100% if the projector crops).
+ [ ] Leave the login page showing when you begin.
+
+ OPTIONAL - show the mobile layout
+ [ ] Connect your phone to the same Wi-Fi and open:
+         http://<laptop-LAN-IP>:8501
+     (the launcher prints the exact address). The interface stacks into a single
+     column, which demonstrates the responsive design. If the phone cannot
+     connect, skip it - the desktop demonstration is complete on its own.
+
+
+--------------------------------------------------------------------------------
+ SECTION 2 - THE FIVE ACCOUNTS
+--------------------------------------------------------------------------------
+
+    Administrator           admin@startup.ng        admin123
+    AI Governance Officer   governance@startup.ng   gov123
+    Startup Developer       dev@startup.ng          dev123
+    Auditor (read-only)     auditor@startup.ng      audit123
+    Reporter (any staff)    reporter@startup.ng     rep123
+
+
+--------------------------------------------------------------------------------
+ SECTION 3 - THE DEMONSTRATION, STEP BY STEP
+--------------------------------------------------------------------------------
+
+--- STEP 1 - COMPLIANCE DASHBOARD (Administrator) ----------------------- 90 sec
+
+   Sign in as  admin@startup.ng / admin123
+
+   SAY: "This is the governance dashboard. PayLink Nigeria has three AI systems
+         on the register.
+
+         The five metrics across the top answer the questions a board actually
+         asks: how many AI systems do we have, how many are approved, how many
+         are waiting, how many incidents are open, and how many are high risk.
+
+         The compliance rate is the percentage that have completed the full
+         governance process - not merely been counted."
+
+   POINT at the colour strip: Low / Moderate / High / Critical / Not assessed.
+   SAY: "One system is HIGH risk and one has not been assessed at all. Those are
+         the two the organisation must act on."
+
+   SCROLL to the four charts:
+   SAY: "Risk distribution, incidents by type, how the register has grown, and
+         where the systems sit in the deployment pipeline. All interactive and
+         all built from the same live database."
+
+--- STEP 2 - REGISTER A NEW AI SYSTEM (Developer) ----------------------- 90 sec
+
+   Sign out. Sign in as  dev@startup.ng / dev123
+   Open  ➕ Register AI System
+
+   FILL IN:
+        AI system name : Fraud Detection System
+        Purpose        : A machine learning model that scores card transactions in
+                         real time, flags suspected fraud for review, and can
+                         automatically block a card pending customer confirmation.
+        Technology     : Machine Learning
+        Data sources   : Financial Data, Personal Data, Transaction Metadata
+        Affected users : Customers, General Public
+        Deployment     : Testing
+
+   CLICK  🗂️ Register AI system
+
+   SAY: "As a startup developer, I register our AI system. The register captures
+         what the AI does, what data it uses, who it affects, and who owns it.
+
+         Notice the system owner was filled in automatically - I did not type my
+         own name. And notice the status: DRAFT. I cannot approve my own system.
+         That is deliberate: separation of duties is the central control in this
+         framework."
+
+--- STEP 3 - RISK ASSESSMENT (Developer) -------------------------------- 2 min
+
+   Open  📝 Risk Assessment  (the new system is already selected)
+
+   DRAG THE SIX SLIDERS TO:
+        Impact / Severity of Harm      70
+        Likelihood of Harm             40
+        Privacy Sensitivity            80
+        Fairness / Bias Concern        30
+        Security Exposure              60
+        Autonomy / Decision Impact     50
+
+   The score recalculates live as each slider moves.
+
+   SAY: "The risk score is not a judgement, it is arithmetic. Six dimensions,
+         each weighted."
+
+   WHEN THE SCORE SHOWS 56.5:
+
+   SAY: "56.5 out of 100. That places it in the HIGH risk band, which is 41 to 70.
+
+         Let me show you why. Impact carries the heaviest weight at 0.30, because
+         governance is ultimately about the severity of harm to people. Privacy
+         and fairness are weighted equally at 0.15 each, because those are
+         precisely the two harms the Nigeria Data Protection Act 2023 and our
+         anti-discrimination obligations focus on. Security and autonomy carry
+         0.10 each - they modify exposure rather than create harm directly.
+
+         The weights sum to exactly 1.00, so the score stays on the same 0-100
+         scale as its inputs and is directly comparable between systems.
+
+         And here is the breakdown: it tells me that impact is contributing 21
+         of the 56.5 points and privacy 12. A governance officer can see not just
+         the score, but WHY."
+
+   CLICK  💾 Save this risk assessment
+
+--- STEP 4 - ETHICAL ASSESSMENT (Developer) ----------------------------- 60 sec
+
+   Open  ⚖️ Ethical Assessment
+   Answer the eight questions - leave most as YES, but set:
+        Transparency      : No
+        Human Oversight   : Partial
+
+   SAY: "The risk assessment tells us how much risk there is. The ethical
+         assessment tells us whether the system is being built responsibly.
+
+         Fairness, privacy, accountability and human oversight are classified as
+         CRITICAL. The rules are strict: two or more critical failures and the
+         system is REJECTED outright. One critical failure caps the outcome at
+         Needs Improvement, no matter how good everything else is."
+
+   POINT at the live recommendation panel.
+   SAY: "The recommendation is produced live, with its reasoning. It is advisory
+         evidence for the governance officer - the officer still decides."
+
+   CLICK  💾 Save this ethical assessment
+
+--- STEP 5 - GOVERNANCE REVIEW (Governance Officer) --------------------- 2 min
+
+   Sign out. Sign in as  governance@startup.ng / gov123
+   Open  ✅ Review Submissions
+
+   SAY: "The governance officer sees the review queue."
+
+   SELECT  Fraud Detection System
+
+   SAY: "Everything is on one screen: the registration, the risk assessment with
+         its breakdown, and the ethical assessment with its recommendation. The
+         officer does not have to chase the developer for evidence."
+
+   TYPE IN COMMENTS:
+        "Please provide more detail on how false positives are handled, and
+         evidence the human review step before a card can be blocked."
+
+   CLICK  ↩️ Return for changes
+
+   SAY: "Returned. The decision, the reason and my identity are recorded
+         permanently. The developer will see it on their dashboard as an action
+         item."
+
+   >>> IMPORTANT - THE GOVERNANCE CONTROL TO MENTION:
+   SAY: "Note what would have happened if I had tried to APPROVE it. This system
+         is HIGH risk, and the framework requires Administrator approval for High
+         and Critical risk systems. The platform would have blocked me - and
+         logged the attempt. That is a technical control, not a policy on paper."
+
+   (If you want to prove it: select Approve, type a comment, and click. The red
+    refusal appears and the attempt is written to the audit trail.)
+
+--- STEP 6 - INCIDENT REPORTING (Reporter) ------------------------------ 60 sec
+
+   Sign out. Sign in as  reporter@startup.ng / rep123
+   Open  🚨 Incidents
+
+   FILL IN:
+        AI system      : Fraud Detection System
+        Incident type  : Bias/Discrimination
+        Severity       : High
+        Description    : "The fraud detection system flagged transactions from a
+                          particular region at three times the normal rate,
+                          blocking customers who had not committed any fraud."
+        Affected parties: Customers in three northern states
+
+   CLICK  📣 Submit incident report
+
+   SAY: "Any employee can report an AI incident - not just engineers. That is the
+         point: the customer support officer is often the first person to notice
+         that an AI is misbehaving.
+
+         And note the scope: this account can ONLY see its own reports. It cannot
+         see the two pre-existing incidents against the loan algorithm and the
+         chatbot. Least privilege, enforced at the data layer."
+
+--- STEP 7 - AUDIT TRAIL (Auditor) -------------------------------------- 60 sec
+
+   Sign out. Sign in as  auditor@startup.ng / audit123
+   Open  🕵️ Audit Trail
+
+   SAY: "Every governance action is logged: who did it, what they did, which
+         record it affected, why, and when.
+
+         Watch what the auditor can see from the last few minutes: the system was
+         REGISTERED, RISK_ASSESSED, ETHICS_ASSESSED, RETURNED by the governance
+         officer, and an incident was REPORTED.
+
+         The trail is append-only. There is no function anywhere in this platform
+         that can update or delete an audit entry - which is exactly what makes it
+         usable as evidence when the Nigeria Data Protection Commission or an
+         external auditor asks questions."
+
+   CLICK  ⬇️ Export audit trail as CSV
+
+   SAY: "And it exports for the auditor."
+
+   >>> OPTIONAL - the access control proof:
+   POINT at the sidebar.
+   SAY: "This account is read-only. There is no register button, no approve
+         button, no edit button anywhere in the menu. An auditor who cannot
+         change the record is an auditor whose findings can be trusted."
+
+--- STEP 8 - REPORT GENERATION ------------------------------------------ 60 sec
+
+   Open  📄 Reports  (still signed in as the Auditor)
+
+   SELECT  Compliance Summary Report  →  📊 Generate Compliance Summary Report
+
+   SCROLL the preview.
+   SAY: "The board report. Portfolio position: how many systems, risk
+         distribution, compliance rate, outstanding items and the full register."
+
+   CLICK  ⬇️ Download report (HTML)  and open the downloaded file.
+   SAY: "A complete, self-contained document with the organisation letterhead,
+         timestamps and signature blocks for the developer, the governance
+         officer and the administrator. Open it in any browser and press Ctrl+P
+         to print it or save it as PDF."
+
+   OPTIONAL - also generate the AI System Governance Report for the Loan Approval
+   Algorithm. It contains the full history: registration, 63.8 HIGH risk with its
+   breakdown, the ethical assessment, the decision, the bias incident and the
+   complete audit trail for that one system.
+
+--- STEP 9 - CLOSING ---------------------------------------------------- 30 sec
+
+   SAY: "To summarise: this platform gives a Nigerian tech startup a complete AI
+         governance capability.
+
+         It records every AI system, scores its risk against a published weighted
+         formula, assesses it against eight ethical requirements, routes it
+         through a formal approval workflow with enforced separation of duties,
+         captures incidents from any employee, and keeps an immutable audit trail
+         that can be produced to a regulator.
+
+         It is built entirely on free and open-source tools - Python, Streamlit,
+         SQLite, Pandas and Plotly - with no cloud service, no paid API and no
+         licensing cost. Everything runs offline on an ordinary laptop, which
+         matters where connectivity is unreliable.
+
+         The framework aligns with the Nigeria Data Protection Act 2023 and the
+         National AI Strategy. Thank you sir/ma. I am ready for your questions."
+
+
+--------------------------------------------------------------------------------
+ SECTION 4 - THE 5-MINUTE VERSION
+--------------------------------------------------------------------------------
+
+  0:00  Administrator  -> Compliance Dashboard: the 5 metrics and the risk strip
+  0:50  Developer      -> Register "Fraud Detection System" (short purpose)
+  1:40  Developer      -> Risk Assessment: drag the six sliders to 56.5 HIGH,
+                          state the formula, save
+  3:00  Sign out       -> Governance Officer -> Review Submissions -> Return with
+                          a comment (mention the high-risk approval block)
+  4:00  Reporter       -> file a bias incident
+  4:30  Auditor        -> Audit Trail: show the five actions just performed
+  5:00  Close with the "free, offline, no licensing cost" line
+
+
+--------------------------------------------------------------------------------
+ SECTION 5 - QUESTIONS YOU WILL BE ASKED
+--------------------------------------------------------------------------------
+
+Q: "Why does the developer not approve their own system?"
+A: "That is separation of duties, the central control in any governance
+    framework. A developer is measured on shipping, so they have a structural
+    incentive to understate risk. The person who benefits from a system being
+    approved must not be the person who approves it. In the platform this is
+    enforced technically through the permission matrix - the Developer role
+    simply does not hold the 'decide_system' permission - so it cannot be
+    bypassed by good intentions."
+
+Q: "Where do the risk weights come from? Are they not arbitrary?"
+A: "They are a policy choice, and I have made the rationale explicit.
+    Impact carries 0.30 because governance is ultimately about severity of harm
+    to people. Likelihood carries 0.20 - a severe but impossible failure is less
+    urgent than a frequent moderate one. Privacy and fairness carry 0.15 each
+    because those are the two harms the NDPA 2023 and our anti-discrimination
+    obligations focus on. Security and autonomy carry 0.10 each because they
+    modify exposure rather than create harm directly. The weights sum to exactly
+    1.00, so the score stays on the same scale as its inputs. Importantly, they
+    are declared as data in one module, so an organisation can change the policy
+    in one place and every calculation follows."
+
+Q: "Is a weighted average of six numbers not a false precision?"
+A: "It is a structured judgement, not a measurement, and I say so in the
+    interface. The value is not the decimal - it is that every system is judged
+    on the same six dimensions, with the same weights, and the result is
+    reproducible and auditable. The banding (Low/Moderate/High/Critical) is what
+    drives the workflow. And the breakdown is shown alongside so the officer sees
+    which dimensions drove the score rather than trusting a single number."
+
+Q: "Why is 56.5 High and not Critical?"
+A: "The bands are 0-20 Low, 21-40 Moderate, 41-70 High, 71-100 Critical.
+    56.5 sits in the High band. Critical is reserved for systems that should be
+    halted pending remediation."
+
+Q: "What stops someone from editing the audit trail?"
+A: "There is no code path that can update or delete an audit entry. The
+    audit_logger module exposes only a write function and read functions - no
+    update, no delete. That is a deliberate design constraint rather than a
+    permission check, because a permission can be granted and a missing function
+    cannot."
+
+Q: "How does this align with the Nigeria Data Protection Act 2023?"
+A: "Three direct mappings. First, the privacy question in the ethical assessment
+    asks whether personal data is minimised, purpose-limited and protected.
+    Second, the incident module is designed for NDPA breach notification - the
+    incident report carries a regulatory note about notifying the Nigeria Data
+    Protection Commission. Third, the accountability requirement forces a named
+    responsible person for every AI system, which is what makes a data controller
+    able to answer for its processing."
+
+Q: "Why SQLite? Would a real deployment not need something bigger?"
+A: "SQLite was chosen because it is built into Python, needs no server and no
+    administration, and is fully ACID-compliant with real foreign keys and CHECK
+    constraints - which I demonstrate. For a single startup that is the right
+    engineering trade-off. All database access is isolated in one module, db.py,
+    so migrating to PostgreSQL for a multi-tenant SaaS deployment means changing
+    one file. I also run it in WAL mode with a busy timeout and retries, so
+    concurrent sessions do not lock each other out - I tested that with
+    simultaneous writers."
+
+Q: "What is the difference between the risk assessment and the ethical
+   assessment? Are they not the same thing?"
+A: "No, and the distinction matters. Risk tells you how much harm is possible.
+    Ethics tells you whether the system is being built and operated responsibly
+    regardless of the probability - fairness, privacy, transparency,
+    accountability, human oversight, security, explainability and accessibility.
+    A system can be low risk and still unethical: a low-impact system that is
+    completely unexplainable and has no accountable owner fails the ethical
+    test even though the harm is small."
+
+Q: "How did you test it?"
+A: "Two automated suites. tests/functional_test.py checks the risk formula
+    against twelve worked cases including all six single-dimension cases, the
+    band boundaries at 20/40/70, the ethical recommendation rules, password
+    hashing, all five roles' permissions, the full governance workflow, the CHECK
+    and foreign key constraints, the audit trail, all three report generators and
+    concurrent writes. tests/ui_smoke_test.py drives the real interface through
+    Streamlit's test harness, proves each of the five roles sees exactly the
+    pages its permissions allow and nothing more, and performs the entire
+    defence-day workflow - register, assess, return, report, audit. Both suites
+    pass with zero failures."
+
+Q: "What would you do next?"
+A: "A regulator-facing export aligned to a standard schema so startups can submit
+    evidence without reformatting; continuous monitoring that re-scores the risk
+    band when the data sources change; integration with the NDPA breach
+    notification process; and a multi-tenant version so one platform can serve
+    many startups with data isolation between them."
+
+ IF YOU DO NOT KNOW AN ANSWER:
+    "That is a good question sir. I have not implemented that, but my
+     understanding is ... and I would approach it by ..."
+    Never bluff.
+
+
+--------------------------------------------------------------------------------
+ SECTION 6 - IF SOMETHING GOES WRONG
+--------------------------------------------------------------------------------
+
+ DATA LOOKS MESSY AFTER EXPERIMENTS
+   > setup_and_start.bat reset   (rebuilds and re-seeds in seconds)
+   > or: sign in as Administrator -> ⚙️ Settings -> Database health ->
+     "Rebuild demonstration data"
+
+ BROWSER TAB BLANK OR DISCONNECTED
+   > Press F5. Streamlit reconnects and the session is preserved.
+
+ SERVER WINDOW CLOSED
+   > Run setup_and_start.bat again (about 20 seconds).
+
+ PORT 8501 ALREADY IN USE
+   > The launcher switches to 8502 automatically and opens the right address.
+
+ CHARTS DO NOT RENDER
+   > Click another menu item and come back. Plotly needs a moment on first load.
+
+ YOU FORGET WHICH ACCOUNT YOU ARE IN
+   > The sidebar always shows the signed-in name and role badge.
+
+ A RED ERROR BOX APPEARS
+   > It is caught by the error handler, not a crash. Note it, click another menu
+     item, continue. Never debug in front of the panel.
+
+ REHEARSE THE RECOVERY ONCE. Confidence in the recovery is worth more than
+ perfection in the first run.
+
+
+--------------------------------------------------------------------------------
+ SECTION 7 - ONE-PAGE CHEAT SHEET (print this bit)
+--------------------------------------------------------------------------------
+
+  URL      http://localhost:8501        (launcher opens it automatically)
+
+  ACCOUNTS admin@startup.ng      admin123   Administrator (full access)
+           governance@startup.ng gov123     AI Governance Officer
+           dev@startup.ng        dev123     Startup Developer
+           auditor@startup.ng    audit123   Auditor (read-only)
+           reporter@startup.ng   rep123     Reporter (any employee)
+
+  DEMO     1. Administrator -> Compliance Dashboard (metrics, risk strip, charts)
+           2. Developer     -> Register "Fraud Detection System"
+           3. Developer     -> Risk Assessment: 70/40/80/30/60/50 = 56.5 HIGH
+           4. Developer     -> Ethical Assessment (set Transparency = No)
+           5. Officer       -> Review Submissions -> RETURN with a comment
+           6. Reporter      -> file a Bias/Discrimination incident
+           7. Auditor       -> Audit Trail (all five actions visible)
+           8. Auditor       -> Reports -> Compliance Summary -> Download
+
+  FORMULA  Risk = 0.30xImpact + 0.20xLikelihood + 0.15xPrivacy
+                + 0.15xFairness + 0.10xSecurity + 0.10xAutonomy
+
+  WEIGHTS  0.30 / 0.20 / 0.15 / 0.15 / 0.10 / 0.10   (sum = 1.00)
+
+  BANDS    0-20 Low | 21-40 Moderate | 41-70 High | 71-100 Critical
+
+  DEMO     Impact 70, Likelihood 40, Privacy 80, Fairness 30, Security 60,
+  SCORE    Autonomy 50  ->  56.5  ->  HIGH   (NOT 59.5)
+
+  ETHICS   Yes=1.0, Partial=0.5, No=0.0, N/A excluded.
+           Critical = Fairness, Privacy, Accountability, Human Oversight.
+           2+ critical No -> Rejected. 1 critical No -> Needs Improvement max.
+           >=85% -> Approved. 55-84% -> Needs Improvement. <55% -> Rejected.
+
+  SEEDED   Customer Support Chatbot       17.5 LOW   Approved
+           Loan Approval Algorithm        63.8 HIGH  Under review
+           Employee Performance Analyzer  not assessed  Submitted
+
+  TESTS    python tests\functional_test.py    0 failures
+           python tests\ui_smoke_test.py      0 failures
+
+  RESET    setup_and_start.bat reset
+
+================================================================================
+ End of demo script. The platform is complete and tested. Good luck.
+================================================================================

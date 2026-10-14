@@ -1,0 +1,34 @@
+# =============================================================================
+#  AI Governance and Ethics Platform
+#  Ethical Guideline and Governance Framework for Artificial Intelligence Use
+#  in Nigerian Tech Startups
+#
+#  Install with:   pip install -r requirements.txt
+#
+#  NO PAID SERVICES AND NO CLOUD DEPENDENCY.
+#  The following are used from the Python STANDARD LIBRARY only:
+#     sqlite3   - the database engine (no server to install, no cloud)
+#     hashlib   - PBKDF2 password hashing
+#     hmac      - constant-time password comparison
+#     datetime  - timestamps (stored in UTC, displayed in West Africa Time)
+#     html      - safe escaping of user-supplied text in reports
+# =============================================================================
+
+# --- Web application framework ------------------------------------------------
+# 1.37 is the minimum because the app uses st.fragment / modern widget APIs.
+streamlit>=1.37,<2.0
+
+# --- Data handling and tables -------------------------------------------------
+pandas>=2.0
+
+# --- Interactive charts for the compliance dashboard --------------------------
+plotly>=5.18
+
+# --- Transitive dependencies (installed automatically, listed for transparency)
+#   numpy          - required by pandas and plotly
+#   altair         - required by streamlit
+#   pyarrow        - required by streamlit dataframes
+#   pillow         - required by streamlit
+#   jinja2         - templating
+#   tornado        - streamlit's web server
+#   protobuf       - streamlit's wire format
