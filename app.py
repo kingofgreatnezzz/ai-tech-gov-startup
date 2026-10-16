@@ -574,6 +574,24 @@ def visible_system_ids() -> Optional[list[int]]:
     return [int(s["system_id"]) for s in systems]
 
 
+def accessible_systems() -> list[dict]:
+    """
+    The AI systems the signed-in user may act on - ALWAYS returned as a real list.
+
+    ``scope_systems_for_user()`` returns ``None`` to mean "every system", which is
+    correct for :func:`visible_system_ids` but dangerous when the result is used
+    directly: ``scope_systems_for_user() or []`` evaluates ``None or []`` to an
+    EMPTY LIST, because ``None`` is falsy.
+
+    That one expression was why an Administrator, Governance Officer or Auditor
+    opening the Risk Assessment or Ethical Assessment page was always told
+    "You have no AI systems to assess" - even immediately after registering one -
+    while a Developer (who gets a real list back) saw their systems normally.
+    """
+    scoped = scope_systems_for_user()
+    return load_systems() if scoped is None else scoped
+
+
 def dashboard_metrics() -> dict:
     """Headline numbers for the compliance dashboard."""
     systems = load_systems()
@@ -1249,6 +1267,323 @@ def page_inventory() -> None:
         _render_system_detail(options[picked])
 
 
+# =================================================================================
+# 9b. GOVERNANCE WORKFLOW ACTIONS
+# ---------------------------------------------------------------------------------
+# The lifecycle of an AI system is
+#
+#     Draft ──submit──► Submitted ──pick up──► UnderReview ──decide──► Approved
+#                                                                  └──► Returned
+#                                                                  └──► Rejected
+#
+# Draft -> Submitted is performed by the system OWNER and is refused until both a
+# risk assessment and an ethical impact assessment are on record.  Everything is
+# written to the audit trail.
+# =================================================================================
+def submit_system_for_review(system_id: int) -> tuple[bool, str]:
+    """
+    Move an AI system from Draft/Returned/Rejected to Submitted.
+
+    Refused unless BOTH assessments exist, because a Governance Officer cannot
+    review a system that has not been assessed - that is the whole point of the
+    workflow.
+    """
+    system = load_system(system_id)
+    if not system:
+        return False, "That AI system no longer exists."
+
+    if system["governance_status"] in ("Submitted", "UnderReview"):
+        return False, "This system is already with the Governance Officer."
+    if system["governance_status"] == "Approved":
+        return False, ("This system is already approved. Re-open it as Draft first "
+                       "if it needs to be reassessed.")
+
+    risk = load_risk(system_id)
+    ethics = load_ethics(system_id)
+
+    missing: list[str] = []
+    if not risk:
+        missing.append("a risk assessment")
+    if not ethics:
+        missing.append("an ethical impact assessment")
+    if missing:
+        return False, ("Cannot submit for review yet - the system is missing "
+                       + " and ".join(missing) + ".")
+
+    try:
+        db.execute_query(
+            "UPDATE ai_systems SET governance_status = 'Submitted', "
+            "updated_at = CURRENT_TIMESTAMP WHERE system_id = ?", (int(system_id),))
+        audit_logger.log_action(
+            auth.current_user_id(), "SYSTEM_SUBMITTED", "ai_system", int(system_id),
+            f"'{system['system_name']}' submitted for governance review. "
+            f"Risk assessment: {risk['total_risk_score']:.1f} ({risk['risk_level']}). "
+            f"Ethical recommendation: {ethics['recommendation']}.",
+        )
+        return True, (f"'{system['system_name']}' has been submitted for review. "
+                      f"The AI Governance Officer can now see it in the review queue.")
+    except db.DatabaseError as exc:
+        return False, str(exc)
+
+
+def withdraw_submission(system_id: int) -> tuple[bool, str]:
+    """Pull a submission back to Draft so the owner can amend it."""
+    system = load_system(system_id)
+    if not system:
+        return False, "That AI system no longer exists."
+    if system["governance_status"] != "Submitted":
+        return False, "Only a system that is awaiting review can be withdrawn."
+
+    try:
+        db.execute_query(
+            "UPDATE ai_systems SET governance_status = 'Draft', "
+            "updated_at = CURRENT_TIMESTAMP WHERE system_id = ?", (int(system_id),))
+        audit_logger.log_action(
+            auth.current_user_id(), "SYSTEM_UPDATED", "ai_system", int(system_id),
+            f"Submission of '{system['system_name']}' withdrawn by the owner; "
+            f"returned to Draft.",
+        )
+        return True, f"'{system['system_name']}' has been withdrawn and returned to Draft."
+    except db.DatabaseError as exc:
+        return False, str(exc)
+
+
+def reopen_system(system_id: int) -> tuple[bool, str]:
+    """Return an approved/returned/rejected system to Draft for reassessment."""
+    system = load_system(system_id)
+    if not system:
+        return False, "That AI system no longer exists."
+    if system["governance_status"] in ("Draft", "Submitted", "UnderReview"):
+        return False, "This system is not in a decided state."
+
+    previous = system["governance_status"]
+    try:
+        db.execute_query(
+            "UPDATE ai_systems SET governance_status = 'Draft', "
+            "updated_at = CURRENT_TIMESTAMP WHERE system_id = ?", (int(system_id),))
+        audit_logger.log_action(
+            auth.current_user_id(), "SYSTEM_UPDATED", "ai_system", int(system_id),
+            f"'{system['system_name']}' re-opened as Draft for reassessment "
+            f"(was {previous}).",
+        )
+        return True, (f"'{system['system_name']}' re-opened as Draft. Complete fresh "
+                      f"assessments and submit it again.")
+    except db.DatabaseError as exc:
+        return False, str(exc)
+
+
+def delete_system(system_id: int) -> tuple[bool, str]:
+    """
+    Permanently delete an AI system and everything attached to it.
+
+    The audit entry is written BEFORE the delete, because the assessments,
+    approvals and incidents cascade away with the system while the audit trail
+    does not - so the evidence that the system existed, and who removed it,
+    survives the deletion.  That is deliberate: a governance platform must not
+    allow a record to be erased without trace.
+    """
+    system = load_system(system_id)
+    if not system:
+        return False, "That AI system no longer exists."
+
+    risk = load_risk(system_id)
+    ethics = load_ethics(system_id)
+    incidents = safe_fetch_all(
+        "SELECT COUNT(*) AS n FROM incidents WHERE system_id = ?", (int(system_id),))
+    incident_count = int(incidents[0]["n"]) if incidents else 0
+
+    try:
+        audit_logger.log_action(
+            auth.current_user_id(), "SYSTEM_DELETED", "ai_system", int(system_id),
+            f"AI system '{system['system_name']}' (AIS-{int(system_id):04d}) DELETED. "
+            f"Last status {system['governance_status']}, deployment "
+            f"{system.get('deployment_status')}. "
+            f"Removed with it: risk assessment "
+            f"{'yes' if risk else 'none'}, ethical assessment "
+            f"{'yes' if ethics else 'none'}, {incident_count} incident(s). "
+            f"The system can no longer be reviewed or audited.",
+        )
+        db.execute_query("DELETE FROM ai_systems WHERE system_id = ?", (int(system_id),))
+        return True, (f"AIS-{int(system_id):04d} '{system['system_name']}' has been "
+                      f"deleted from the register. The deletion is recorded in the "
+                      f"audit trail.")
+    except db.DatabaseError as exc:
+        return False, str(exc)
+
+
+def can_delete_system(system: dict) -> tuple[bool, str]:
+    """
+    Whether the signed-in user may delete this system, and why not if not.
+
+    Governance rule: an Administrator may delete any system.  A Developer may
+    delete only a system they own that is still in Draft, Returned or Rejected -
+    never one that is under review or approved, because at that point the record
+    is evidence the organisation is accountable for.
+    """
+    if not auth.has_permission("delete_system"):
+        return False, "Your role does not permit deleting AI systems."
+
+    is_owner = system.get("owner_id") == auth.current_user_id()
+    is_admin = auth.has_permission("manage_users")
+
+    if is_admin:
+        return True, ""
+    if not is_owner:
+        return False, "You can only delete an AI system that you registered."
+    if system["governance_status"] in ("Submitted", "UnderReview", "Approved"):
+        return False, (f"This system is {system['governance_status']} and forms part of "
+                       f"the governance record, so it cannot be deleted. Withdraw it or "
+                       f"ask an Administrator.")
+    return True, ""
+
+
+def render_workflow_panel(system: dict, compact: bool = False) -> None:
+    """
+    Show where a system sits in the governance workflow, what is missing, and the
+    actions the signed-in user may take next.
+
+    ``compact=True`` renders a slimmer strip for the Risk and Ethical assessment
+    pages; the full panel is used on the system record itself.
+    """
+    system_id = int(system["system_id"])
+    status = system["governance_status"]
+    risk = load_risk(system_id)
+    ethics = load_ethics(system_id)
+
+    missing: list[str] = []
+    if not risk:
+        missing.append("risk assessment")
+    if not ethics:
+        missing.append("ethical assessment")
+
+    steps = [
+        ("Created", True),
+        ("Risk assessed", bool(risk)),
+        ("Ethics assessed", bool(ethics)),
+        ("Submitted", status in ("Submitted", "UnderReview", "Approved",
+                                 "Returned", "Rejected")),
+        ("Decided", status in ("Approved", "Returned", "Rejected")),
+    ]
+    step_html = "".join(
+        f'<span class="pill" style="background:{"#e8f5e9" if done else "#f5f5f5"};'
+        f'color:{"#2e7d32" if done else "#90a4ae"};'
+        f'border:1px solid {"#2e7d3255" if done else "#cfd8dc"};">'
+        f'{"✔" if done else "○"} {html_lib.escape(label)}</span>&nbsp;'
+        for label, done in steps
+    )
+
+    if not compact:
+        section("🔄 Governance workflow")
+        st.markdown(
+            f"""
+            <div class="ag-card">
+                <div class="title">{status_pill(status)}</div>
+                <div class="body" style="margin-top:8px">{step_html}</div>
+                {'<div class="body" style="color:#ef6c00;margin-top:6px">⚠️ Still outstanding: '
+                 + html_lib.escape(", ".join(missing)) + '</div>' if missing else ''}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"""
+            <div class="ag-card">
+                <div class="sub"><b>Workflow position:</b> {status_pill(status)}</div>
+                <div class="body" style="margin-top:8px">{step_html}</div>
+                {'<div class="body" style="color:#ef6c00;margin-top:6px">⚠️ Still outstanding: '
+                 + html_lib.escape(", ".join(missing)) + '</div>' if missing else ''}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    is_owner = system.get("owner_id") == auth.current_user_id()
+    can_submit = auth.has_permission("submit_system") and is_owner
+    can_decide = auth.has_permission("decide_system")
+
+    # ---- actions ----------------------------------------------------------
+    buttons: list[tuple[str, str, str]] = []   # (key, label, target page)
+    if can_submit and status in ("Draft", "Returned", "Rejected"):
+        buttons.append((f"wf_submit_{system_id}", "📤 Submit for review", ""))
+    if can_submit and status == "Submitted":
+        buttons.append((f"wf_withdraw_{system_id}", "↩️ Withdraw submission", ""))
+    if (can_submit or auth.has_permission("manage_users")) and status in (
+            "Approved", "Returned", "Rejected"):
+        buttons.append((f"wf_reopen_{system_id}", "🔁 Re-open as Draft", ""))
+    current_page = st.session_state.get("page") or ""
+
+    if can_decide and status in ("Submitted", "UnderReview") \
+            and current_page != "✅ Review Submissions":
+        buttons.append((f"wf_goto_review_{system_id}", "⚖️ Go to the review queue",
+                        "✅ Review Submissions"))
+    if not risk and auth.has_permission("assess_risk") \
+            and current_page != "📝 Risk Assessment":
+        buttons.append((f"wf_goto_risk_{system_id}", "📝 Do the risk assessment",
+                        "📝 Risk Assessment"))
+    if not ethics and auth.has_permission("assess_ethics") \
+            and current_page != "⚖️ Ethical Assessment":
+        buttons.append((f"wf_goto_ethics_{system_id}", "⚖️ Do the ethical assessment",
+                        "⚖️ Ethical Assessment"))
+
+    if buttons:
+        columns = st.columns(min(len(buttons), 3), gap="small")
+        for index, (key, label, target) in enumerate(buttons):
+            with columns[index % len(columns)]:
+                disabled = (key.startswith("wf_submit") and bool(missing))
+                help_text = ("Both assessments must be complete before submission."
+                             if disabled else None)
+                if st.button(label, key=key, type="primary" if key.startswith("wf_submit")
+                             else "secondary", disabled=disabled, help=help_text,
+                             **FULL_WIDTH):
+                    if target:
+                        nav_callback(target, {"selected_system_id": system_id})
+                        st.rerun()
+                    else:
+                        st.session_state[f"_wf_action_{system_id}"] = key
+                        st.rerun()
+
+    # ---- perform a queued action ------------------------------------------
+    queued = st.session_state.pop(f"_wf_action_{system_id}", None)
+    if queued:
+        if queued.startswith("wf_submit"):
+            ok, message = submit_system_for_review(system_id)
+        elif queued.startswith("wf_withdraw"):
+            ok, message = withdraw_submission(system_id)
+        elif queued.startswith("wf_reopen"):
+            ok, message = reopen_system(system_id)
+        else:  # pragma: no cover - defensive
+            ok, message = False, "Unrecognised workflow action."
+        notify("success" if ok else "error", message)
+        st.rerun()
+
+    # ---- danger zone -------------------------------------------------------
+    allowed, reason = can_delete_system(system)
+    if allowed or (auth.has_permission("delete_system") and reason):
+        with st.expander("🗑️ Delete this AI system"):
+            if not allowed:
+                st.warning(f"🔒 {reason}")
+            else:
+                st.error(
+                    f"⚠️ Deleting **{system['system_name']}** (AIS-{system_id:04d}) "
+                    f"permanently removes the system, its risk assessment, its ethical "
+                    f"assessment, its decision history and its incident records. "
+                    f"This cannot be undone. The deletion itself is recorded in the "
+                    f"audit trail."
+                )
+                confirm = st.text_input(
+                    f"Type DELETE to confirm", key=f"del_confirm_{system_id}",
+                    placeholder="DELETE",
+                )
+                if st.button("🗑️ Permanently delete", key=f"del_btn_{system_id}",
+                             disabled=confirm.strip().upper() != "DELETE",
+                             **FULL_WIDTH):
+                    ok, message = delete_system(system_id)
+                    notify("success" if ok else "error", message)
+                    st.session_state.pop("selected_system_id", None)
+                    st.rerun()
+
+
 def _render_system_detail(system_id: int) -> None:
     """The complete governance record for one AI system."""
     system = load_system(system_id)
@@ -1307,6 +1642,10 @@ def _render_system_detail(system_id: int) -> None:
 
     with st.expander("📄 Purpose of the system", expanded=True):
         st.write(system.get("purpose") or "No purpose recorded.")
+
+    # Where this system stands, what is still outstanding, and what can happen
+    # next - the submit / withdraw / re-open / delete actions live here.
+    render_workflow_panel(system)
 
     tabs = st.tabs(["📊 Risk assessment", "⚖️ Ethical assessment",
                     "✅ Decision history", "🚨 Incidents", "🕵️ Audit trail"])
@@ -1544,7 +1883,11 @@ def page_register_system() -> None:
                 )
                 notify("success", f"'{name.strip()}' registered as AIS-{system_id:04d}. "
                                    f"Next step: complete the risk assessment.")
+                # Hand the developer straight to the next step of the workflow with
+                # the new system already selected, instead of leaving them on the
+                # registration form wondering what to do next.
                 st.session_state["selected_system_id"] = system_id
+                st.session_state["_nav_request"] = "📝 Risk Assessment"
                 st.rerun()
             except db.DatabaseError as exc:
                 st.error(f"⛔ {exc}")
@@ -1580,7 +1923,7 @@ def page_risk_assessment() -> None:
     if not auth.require_permission("assess_risk"):
         return
 
-    systems = scope_systems_for_user() or []
+    systems = accessible_systems()
     if not systems:
         st.info("You have no AI systems to assess. Register a system first.")
         return
@@ -1717,6 +2060,12 @@ def page_risk_assessment() -> None:
         except db.DatabaseError as exc:
             st.error(f"⛔ {exc}")
 
+    # ---- where this leaves the system in the workflow ----------------------
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    reloaded = load_system(system_id)
+    if reloaded:
+        render_workflow_panel(reloaded, compact=True)
+
     with st.expander("ℹ️ How the risk score is calculated"):
         st.markdown(
             f"""
@@ -1755,7 +2104,7 @@ def page_ethical_assessment() -> None:
     if not auth.require_permission("assess_ethics"):
         return
 
-    systems = scope_systems_for_user() or []
+    systems = accessible_systems()
     if not systems:
         st.info("You have no AI systems to assess. Register a system first.")
         return
@@ -1847,6 +2196,12 @@ def page_ethical_assessment() -> None:
             st.rerun()
         except db.DatabaseError as exc:
             st.error(f"⛔ {exc}")
+
+    # ---- where this leaves the system in the workflow ----------------------
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    reloaded = load_system(system_id)
+    if reloaded:
+        render_workflow_panel(reloaded, compact=True)
 
     with st.expander("ℹ️ How the recommendation is decided"):
         st.markdown(

@@ -112,6 +112,8 @@ A **High or Critical** risk system is blocked from approval unless the user hold
 | View all AI systems | ✅ | ✅ | — | ✅ | — |
 | View own AI systems | ✅ | — | ✅ | — | — |
 | Register / edit AI systems | ✅ | — | ✅ | — | — |
+| Submit a system for review | ✅ | — | ✅ | — | — |
+| Delete an AI system | ✅ any system | — | ✅ own, unreviewed only | — | — |
 | Complete risk assessment | ✅ | — | ✅ | — | — |
 | Complete ethical assessment | ✅ | — | ✅ | — | — |
 | Review submissions | ✅ | ✅ | — | — | — |
@@ -298,12 +300,14 @@ as well as on a projector.
 ```bat
 python tests\functional_test.py     REM formula, permissions, workflow, constraints
 python tests\ui_smoke_test.py       REM all five roles, every page, full workflow
+python tests\lifecycle_test.py      REM register -> assess -> submit -> approve -> delete
 ```
 
 | Suite | What it proves |
 |---|---|
 | `tests/functional_test.py` | The risk formula against **12 worked cases** including all six single-dimension cases; band boundaries at 20/40/70; input validation; breakdown sums; the ethical recommendation rules; PBKDF2 hashing; all five roles authenticate with the right permissions; **no non-Admin role can both register and approve**; the full register → assess → return workflow; CHECK, UNIQUE and foreign-key enforcement; the audit trail; all three report generators; and **24 simultaneous inserts with zero lock errors** |
 | `tests/ui_smoke_test.py` | Every role sees **exactly** the pages its permissions allow and nothing more; every page renders with zero exceptions on every role; and the complete defence-day workflow driven through the real interface — register a system, score it, assess it ethically, have it returned by the officer, file an incident as the reporter, then read all of it back in the auditor's audit trail |
+| `tests/lifecycle_test.py` | The **whole lifecycle in one run**: every governance role can see the systems it is allowed to assess; registering a system hands the developer straight to the risk assessment with the new system preselected; **submission is refused until both assessments exist**; submitting moves the system to *Submitted* and writes to the audit trail; the Governance Officer finds it in the queue and approves it; the delete rules hold (a Governance Officer may not delete, the owner may not delete an approved system); and the Administrator's deletion cascades the assessments away **while the audit entry survives** |
 
 Both suites currently pass with **0 failures**.
 
@@ -339,5 +343,3 @@ Both suites currently pass with **0 failures**.
 
 *Demonstration prototype. The organisation (PayLink Nigeria Ltd) and its AI systems are
 fictional. All data is held in a single local SQLite file.*
-#   a i - t e c h - g o v - s t a r t u p  
- 
